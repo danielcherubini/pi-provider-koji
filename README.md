@@ -51,17 +51,24 @@ No configuration is needed if koji is running locally on the default port.
 
 ### Remote koji server
 
-Set the `KOJI_URL` environment variable to point to a remote server:
+Add the koji URL to `~/.pi/agent/settings.json`:
+
+```json
+{
+  "packages": ["npm:pi-koji"],
+  "pi-koji": {
+    "url": "http://myserver:11434"
+  }
+}
+```
+
+Or use the `KOJI_URL` environment variable (takes priority over settings.json):
 
 ```bash
 export KOJI_URL=http://myserver:11434
 ```
 
-Or launch pi with it:
-
-```bash
-KOJI_URL=http://myserver:11434 pi
-```
+**Priority order:** `KOJI_URL` env var → `settings.json` → auto-detect localhost
 
 ## How it works
 

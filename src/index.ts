@@ -1,13 +1,27 @@
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { homedir } from 'node:os'
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent'
 import { discoverKojiForPi } from './koji-api'
 
 const PROVIDER_NAME = 'koji'
+const SETTINGS_PATH = join(homedir(), '.pi', 'agent', 'settings.json')
+
+/** Read koji URL from ~/.pi/agent/settings.json "pi-koji" section. */
+async function readSettingsURL(): Promise<string | undefined> {
+  try {
+    const raw = await readFile(SETTINGS_PATH, 'utf-8')
+    const settings = JSON.parse(raw)
+    return settings?.['pi-koji']?.url || undefined
+  } catch {
+    return undefined
+  }
+}
 
 export default function (pi: ExtensionAPI) {
   pi.on('session_start', async (_event, ctx) => {
-    // KOJI_URL env var allows pointing to a remote koji server
-    // e.g. KOJI_URL=http://myserver:11434
-    const kojiURL = process.env.KOJI_URL || undefined
+    // Priority: KOJI_URL env var > settings.json > auto-detect localhost
+    const kojiURL = process.env.KOJI_URL || (await readSettingsURL()) || undefined
     const config = await discoverKojiForPi(kojiURL)
 
     if (!config) {

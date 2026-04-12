@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "pi-koji",
+  "version": "0.2.0",
+  "description": "Pi agent extension for koji local AI server auto-discovery and model configuration",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix"
+  },
+  "keywords": [
+    "pi",
+    "pi-agent",
+    "koji",
+    "extension",
+    "local-llm",
+    "openai-compatible",
+    "auto-discovery"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^4.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  }
+}

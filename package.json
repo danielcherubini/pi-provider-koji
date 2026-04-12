@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "pi-koji",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Pi agent extension for koji local AI server auto-discovery and model configuration",
   "type": "module",
   "main": "./src/index.ts",
@@ -12,7 +12,9 @@
     "src"
   ],
   "pi": {
-    "extensions": ["./src/index.ts"]
+    "extensions": [
+      "./src/index.ts"
+    ]
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -47,7 +47,21 @@ pi install ./pi-koji
 
 By default, the extension auto-detects koji on `127.0.0.1:11434` and `127.0.0.1:8080`.
 
-No configuration is needed if koji is running on the default port.
+No configuration is needed if koji is running locally on the default port.
+
+### Remote koji server
+
+Set the `KOJI_URL` environment variable to point to a remote server:
+
+```bash
+export KOJI_URL=http://myserver:11434
+```
+
+Or launch pi with it:
+
+```bash
+KOJI_URL=http://myserver:11434 pi
+```
 
 ## How it works
 

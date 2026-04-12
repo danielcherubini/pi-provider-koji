@@ -5,7 +5,10 @@ const PROVIDER_NAME = 'koji'
 
 export default function (pi: ExtensionAPI) {
   pi.on('session_start', async (_event, ctx) => {
-    const config = await discoverKojiForPi()
+    // KOJI_URL env var allows pointing to a remote koji server
+    // e.g. KOJI_URL=http://myserver:11434
+    const kojiURL = process.env.KOJI_URL || undefined
+    const config = await discoverKojiForPi(kojiURL)
 
     if (!config) {
       return

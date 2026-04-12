@@ -27,7 +27,7 @@ export interface PiModel {
   id: string
   name: string
   reasoning: boolean
-  input: string[]
+  input: ('text' | 'image')[]
   contextWindow: number
   maxTokens: number
   cost: {

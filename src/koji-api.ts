@@ -79,8 +79,9 @@ export function transformModel(model: KojiModel): PiModel {
   const maxTokens = model.limit?.output ?? (Math.floor(contextWindow / 16) || DEFAULT_MAX_TOKENS)
 
   // Map modalities: koji uses ["text", "image"], pi uses the same format
-  const input = model.modalities?.input?.length
-    ? model.modalities.input
+  const validInputTypes = new Set(['text', 'image'])
+  const input: ('text' | 'image')[] = model.modalities?.input?.length
+    ? (model.modalities.input.filter((m) => validInputTypes.has(m)) as ('text' | 'image')[])
     : ['text']
 
   return {

@@ -22,6 +22,7 @@
     "lint:fix": "eslint src --ext .ts --fix"
   },
   "keywords": [
+    "pi-package",
     "pi",
     "pi-agent",
     "koji",
@@ -30,6 +31,9 @@
     "openai-compatible",
     "auto-discovery"
   ],
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  },
   "author": "",
   "license": "MIT",
   "devDependencies": {

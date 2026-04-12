@@ -14,34 +14,33 @@ Models appear in `/model` immediately — no manual `models.json` editing needed
 
 ## Installation
 
-### Option A: Symlink into pi extensions (recommended for development)
+### Option A: npm (recommended)
 
 ```bash
-git clone https://github.com/youruser/pi-koji.git
+pi install npm:pi-koji
+```
+
+### Option B: git
+
+```bash
+pi install git:github.com/dworznik/pi-koji
+```
+
+Use `-l` to install to project scope (`.pi/settings.json`) instead of global:
+
+```bash
+pi install -l npm:pi-koji
+```
+
+### Option C: Local development
+
+```bash
+git clone https://github.com/dworznik/pi-koji.git
 cd pi-koji
 npm install
 
-# Symlink into pi's global extensions directory
-ln -s "$(pwd)" ~/.pi/agent/extensions/pi-koji
-```
-
-### Option B: Copy directly
-
-```bash
-# Copy the extension into pi's extensions directory
-cp -r pi-koji ~/.pi/agent/extensions/pi-koji
-cd ~/.pi/agent/extensions/pi-koji
-npm install
-```
-
-### Option C: Reference in settings.json
-
-Add to `~/.pi/agent/settings.json`:
-
-```json
-{
-  "extensions": ["/path/to/pi-koji/src/index.ts"]
-}
+# Install from local path
+pi install ./pi-koji
 ```
 
 ## Configuration

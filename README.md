@@ -1,6 +1,6 @@
 # pi-koji
 
-[Pi agent](https://pi.dev) extension that auto-discovers models from a local [koji](https://github.com/dworznik/koji) server and registers them as a provider.
+[Pi agent](https://pi.dev) extension that auto-discovers models from a local [koji](https://github.com/danielcherubini/koji) server and registers them as a provider.
 
 ## What it does
 
@@ -23,7 +23,7 @@ pi install npm:pi-koji
 ### Option B: git
 
 ```bash
-pi install git:github.com/dworznik/pi-koji
+pi install git:github.com/danielcherubini/pi-koji
 ```
 
 Use `-l` to install to project scope (`.pi/settings.json`) instead of global:
@@ -35,7 +35,7 @@ pi install -l npm:pi-koji
 ### Option C: Local development
 
 ```bash
-git clone https://github.com/dworznik/pi-koji.git
+git clone https://github.com/danielcherubini/pi-koji.git
 cd pi-koji
 npm install
 
@@ -74,15 +74,16 @@ export KOJI_URL=http://myserver:11434
 
 The extension fetches models from koji's `/koji/v1/opencode/models` endpoint and maps them to pi's provider format:
 
-| Koji field | Pi field |
-|---|---|
-| `id` (lowercased HF repo) | model `id` |
-| `name` (pretty display) | model `name` |
-| `context_length` | `contextWindow` |
-| `context_length / 16` | `maxTokens` |
-| `modalities.input` | `input` |
+| Koji field                | Pi field        |
+| ------------------------- | --------------- |
+| `id` (lowercased HF repo) | model `id`      |
+| `name` (pretty display)   | model `name`    |
+| `context_length`          | `contextWindow` |
+| `context_length / 16`     | `maxTokens`     |
+| `modalities.input`        | `input`         |
 
 All models are registered with:
+
 - `api: "openai-completions"` (OpenAI-compatible)
 - `reasoning: false`
 - `cost: { input: 0, output: 0, ... }` (local = free)
@@ -99,7 +100,7 @@ npm run typecheck # Type check
 
 ## Requirements
 
-- [koji](https://github.com/dworznik/koji) running locally with `koji serve`
+- [koji](https://github.com/danielcherubini/koji) running locally with `koji serve`
 - [pi](https://pi.dev) agent
 
 ## License

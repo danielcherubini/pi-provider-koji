@@ -36,7 +36,7 @@
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*"
   },
-  "author": "",
+  "author": "Daniel Cherubini",
   "license": "MIT",
   "devDependencies": {
     "@mariozechner/pi-coding-agent": "*",

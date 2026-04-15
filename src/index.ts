@@ -19,18 +19,46 @@ async function readSettingsURL(): Promise<string | undefined> {
   }
 }
 
+/**
+ * Determine which koji model IDs must be pre-registered synchronously so they
+ * exist in the registry before pi computes its initial scope. Includes:
+ *  - entries in `enabledModels` that start with "koji/"
+ *  - `defaultModel` when `defaultProvider === "koji"` (an implicit enabled model)
+ */
+export function collectPreRegisterModels(settings: unknown): string[] {
+  if (!settings || typeof settings !== 'object') return []
+  const s = settings as Record<string, unknown>
+  const ids = new Set<string>()
+
+  const enabled = Array.isArray(s.enabledModels) ? s.enabledModels : []
+  const prefix = `${PROVIDER_NAME}/`
+  for (const entry of enabled) {
+    if (typeof entry === 'string' && entry.startsWith(prefix)) {
+      ids.add(entry.slice(prefix.length))
+    }
+  }
+
+  if (
+    s.defaultProvider === PROVIDER_NAME &&
+    typeof s.defaultModel === 'string' &&
+    s.defaultModel.length > 0
+  ) {
+    ids.add(s.defaultModel)
+  }
+
+  return [...ids]
+}
+
 export default function (pi: ExtensionAPI) {
   // Synchronous pre-registration to prevent race condition with scoped models.
-  // We read settings.json and register any koji models mentioned in 'enabledModels'
-  // so they exist in the registry when pi computes the initial scope.
+  // We read settings.json and register any koji models mentioned in
+  // `enabledModels` OR the implicit `defaultModel` (when `defaultProvider` is
+  // "koji") so they exist in the registry when pi computes the initial scope.
   try {
     const raw = readFileSync(SETTINGS_PATH, 'utf-8')
     const settings = JSON.parse(raw)
     const kojiURL = settings?.['pi-koji']?.url
-    const enabledModels = settings?.enabledModels || []
-    const kojiModelsIds = enabledModels
-      .filter((m: string) => m.startsWith(`${PROVIDER_NAME}/`))
-      .map((m: string) => m.slice(`${PROVIDER_NAME}/`.length))
+    const kojiModelsIds = collectPreRegisterModels(settings)
 
     if (kojiURL && kojiModelsIds.length > 0) {
       pi.registerProvider(PROVIDER_NAME, {

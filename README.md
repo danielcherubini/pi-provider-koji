@@ -74,13 +74,13 @@ export KOJI_URL=http://myserver:11434
 
 The extension fetches models from koji's `/koji/v1/opencode/models` endpoint and maps them to pi's provider format:
 
-| Koji field                | Pi field        |
-| ------------------------- | --------------- |
-| `id` (lowercased HF repo) | model `id`      |
-| `name` (pretty display)   | model `name`    |
-| `context_length`          | `contextWindow` |
-| `limit.output`            | `maxTokens`     |
-| `modalities.input`        | `input`         |
+| Koji field                          | Pi field        | Fallback                      |
+| ----------------------------------- | --------------- | ----------------------------- |
+| `id` (lowercased HF repo)           | model `id`      | —                             |
+| `name` (pretty display)             | model `name`    | `id`                          |
+| `context_length` or `limit.context` | `contextWindow` | `128000`                      |
+| `limit.output`                      | `maxTokens`     | `contextWindow / 16` or `8192`|
+| `modalities.input`                  | `input`         | `["text"]`                    |
 
 All models are registered with:
 
@@ -88,6 +88,14 @@ All models are registered with:
 - `reasoning: false`
 - `cost: { input: 0, output: 0, ... }` (local = free)
 - `compat: { supportsDeveloperRole: false, supportsReasoningEffort: false }`
+
+## Migrating from pi-koji
+
+This package was previously published as `pi-koji`. To migrate:
+
+1. Reinstall: `pi install npm:pi-provider-koji`
+2. Rename the settings key in `~/.pi/agent/settings.json` from `"pi-koji"` to `"pi-provider-koji"`
+3. Uninstall the old package
 
 ## Development
 

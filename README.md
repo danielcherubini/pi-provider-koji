@@ -1,4 +1,4 @@
-# pi-koji
+# pi-provider-koji
 
 [Pi agent](https://pi.dev) extension that auto-discovers models from a local [koji](https://github.com/danielcherubini/koji) server and registers them as a provider.
 
@@ -17,30 +17,30 @@ Models appear in `/model` immediately — no manual `models.json` editing needed
 ### Option A: npm (recommended)
 
 ```bash
-pi install npm:pi-koji
+pi install npm:pi-provider-koji
 ```
 
 ### Option B: git
 
 ```bash
-pi install git:github.com/danielcherubini/pi-koji
+pi install git:github.com/danielcherubini/pi-provider-koji
 ```
 
 Use `-l` to install to project scope (`.pi/settings.json`) instead of global:
 
 ```bash
-pi install -l npm:pi-koji
+pi install -l npm:pi-provider-koji
 ```
 
 ### Option C: Local development
 
 ```bash
-git clone https://github.com/danielcherubini/pi-koji.git
-cd pi-koji
+git clone https://github.com/danielcherubini/pi-provider-koji.git
+cd pi-provider-koji
 npm install
 
 # Install from local path
-pi install ./pi-koji
+pi install ./pi-provider-koji
 ```
 
 ## Configuration
@@ -55,8 +55,8 @@ Add the koji URL to `~/.pi/agent/settings.json`:
 
 ```json
 {
-  "packages": ["npm:pi-koji"],
-  "pi-koji": {
+  "packages": ["npm:pi-provider-koji"],
+  "pi-provider-koji": {
     "url": "http://myserver:11434"
   }
 }
@@ -79,7 +79,7 @@ The extension fetches models from koji's `/koji/v1/opencode/models` endpoint and
 | `id` (lowercased HF repo) | model `id`      |
 | `name` (pretty display)   | model `name`    |
 | `context_length`          | `contextWindow` |
-| `context_length / 16`     | `maxTokens`     |
+| `limit.output`            | `maxTokens`     |
 | `modalities.input`        | `input`         |
 
 All models are registered with:

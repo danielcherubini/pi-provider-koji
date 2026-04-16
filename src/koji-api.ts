@@ -59,7 +59,7 @@ export async function fetchKojiModels(baseURL: string = DEFAULT_KOJI_URL): Promi
     })
 
     if (!response.ok) {
-      console.warn(`[pi-koji] Koji returned ${response.status}: ${response.statusText}`)
+      console.warn(`[pi-provider-koji] Koji returned ${response.status}: ${response.statusText}`)
       return []
     }
 
@@ -67,7 +67,7 @@ export async function fetchKojiModels(baseURL: string = DEFAULT_KOJI_URL): Promi
     return data.models ?? []
   } catch (error) {
     console.warn(
-      `[pi-koji] Failed to fetch models: ${error instanceof Error ? error.message : String(error)}`
+      `[pi-provider-koji] Failed to fetch models: ${error instanceof Error ? error.message : String(error)}`
     )
     return []
   }
@@ -76,7 +76,11 @@ export async function fetchKojiModels(baseURL: string = DEFAULT_KOJI_URL): Promi
 /** Transform a single koji model into pi's model format. */
 export function transformModel(model: KojiModel): PiModel {
   const contextWindow = model.context_length ?? model.limit?.context ?? DEFAULT_CONTEXT_WINDOW
-  const maxTokens = model.limit?.output ?? (Math.floor(contextWindow / 16) || DEFAULT_MAX_TOKENS)
+  // Use || (not ??) so that 0 also falls through to the computed default.
+  // Some providers set limit.output = 0 meaning "no explicit limit", which would
+  // otherwise give pi an auto-compact threshold of contextWindow - 0 = contextWindow
+  // (i.e. never compact).  contextWindow/16 is the reservation heuristic (~6%).
+  const maxTokens = model.limit?.output || (Math.floor(contextWindow / 16) || DEFAULT_MAX_TOKENS)
 
   // Map modalities: koji uses ["text", "image"], pi uses the same format
   const validInputTypes = new Set(['text', 'image'])
@@ -129,13 +133,13 @@ export async function discoverKojiForPi(
     baseURL = normalizeBaseURL(kojiURL)
     const isHealthy = await checkKojiHealth(baseURL)
     if (!isHealthy) {
-      console.warn(`[pi-koji] Koji not reachable at ${baseURL}`)
+      console.warn(`[pi-provider-koji] Koji not reachable at ${baseURL}`)
       return null
     }
   } else {
     const detected = await autoDetectKoji()
     if (!detected) {
-      console.log('[pi-koji] Koji not detected on default ports (11434, 8080)')
+      console.log('[pi-provider-koji] Koji not detected on default ports (11434, 8080)')
       return null
     }
     baseURL = detected
@@ -143,10 +147,10 @@ export async function discoverKojiForPi(
 
   const models = await fetchKojiModels(baseURL)
   if (models.length === 0) {
-    console.warn('[pi-koji] No models discovered — ensure koji serve is running')
+    console.warn('[pi-provider-koji] No models discovered — ensure koji serve is running')
     return null
   }
 
-  console.log(`[pi-koji] Discovered ${models.length} model(s) from koji at ${baseURL}`)
+  console.log(`[pi-provider-koji] Discovered ${models.length} model(s) from koji at ${baseURL}`)
   return buildPiProviderConfig(baseURL, models)
 }

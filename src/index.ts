@@ -8,12 +8,12 @@ import { discoverKojiForPi, normalizeBaseURL } from './koji-api'
 const PROVIDER_NAME = 'koji'
 const SETTINGS_PATH = join(homedir(), '.pi', 'agent', 'settings.json')
 
-/** Read koji URL from ~/.pi/agent/settings.json "pi-koji" section. */
+/** Read koji URL from ~/.pi/agent/settings.json "pi-provider-koji" section. */
 async function readSettingsURL(): Promise<string | undefined> {
   try {
     const raw = await readFile(SETTINGS_PATH, 'utf-8')
     const settings = JSON.parse(raw)
-    return settings?.['pi-koji']?.url || undefined
+    return settings?.['pi-provider-koji']?.url || undefined
   } catch {
     return undefined
   }
@@ -57,7 +57,7 @@ export default function (pi: ExtensionAPI) {
   try {
     const raw = readFileSync(SETTINGS_PATH, 'utf-8')
     const settings = JSON.parse(raw)
-    const kojiURL = settings?.['pi-koji']?.url
+    const kojiURL = settings?.['pi-provider-koji']?.url
     const kojiModelsIds = collectPreRegisterModels(settings)
 
     if (kojiURL && kojiModelsIds.length > 0) {

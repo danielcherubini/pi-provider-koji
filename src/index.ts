@@ -92,8 +92,5 @@ export default function (pi: ExtensionAPI) {
 
     pi.registerProvider(PROVIDER_NAME, config)
 
-    const modelCount = config.models.length
-    const names = config.models.map((m) => m.name).join(', ')
-    ctx.ui.notify(`koji: ${modelCount} model(s) discovered (${names})`, 'info')
   })
 }

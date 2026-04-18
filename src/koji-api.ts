@@ -151,6 +151,5 @@ export async function discoverKojiForPi(
     return null
   }
 
-  console.log(`[pi-provider-koji] Discovered ${models.length} model(s) from koji at ${baseURL}`)
   return buildPiProviderConfig(baseURL, models)
 }

@@ -1,58 +1,104 @@
 import { describe, it, expect } from 'vitest'
-import { discoverKojiForPi } from '../src/koji-api'
+import { collectPreRegisterModels } from '../src/index'
 
-describe('provider registration', () => {
-  it('discovers koji models and returns a valid provider config', async () => {
-    // This test verifies that discoverKojiForPi returns a properly shaped
-    // config. It requires koji to be running — skip if not available.
-    const config = await discoverKojiForPi()
-
-    // If koji is not running, the test should still pass (graceful degradation)
-    if (!config) {
-      expect(true).toBe(true)
-      return
-    }
-
-    expect(config).toHaveProperty('baseUrl')
-    expect(config).toHaveProperty('api', 'openai-completions')
-    expect(config).toHaveProperty('apiKey', 'koji')
-    expect(config).toHaveProperty('models')
-    expect(Array.isArray(config.models)).toBe(true)
-    expect(config.models.length).toBeGreaterThan(0)
-
-    // Verify each model has the required fields
-    for (const model of config.models) {
-      expect(model).toHaveProperty('id')
-      expect(model).toHaveProperty('name')
-      expect(model).toHaveProperty('contextWindow')
-      expect(model).toHaveProperty('maxTokens')
-      expect(typeof model.contextWindow).toBe('number')
-      expect(model.contextWindow).toBeGreaterThan(0)
-    }
+describe('collectPreRegisterModels', () => {
+  it('returns empty list for null/undefined/non-object', () => {
+    expect(collectPreRegisterModels(null)).toEqual([])
+    expect(collectPreRegisterModels(undefined)).toEqual([])
+    expect(collectPreRegisterModels('nope')).toEqual([])
+    expect(collectPreRegisterModels(42)).toEqual([])
   })
 
-  it('uses real context windows from koji, not hardcoded values', async () => {
-    const config = await discoverKojiForPi()
+  it('returns empty list when nothing koji-related is configured', () => {
+    expect(collectPreRegisterModels({})).toEqual([])
+    expect(
+      collectPreRegisterModels({
+        defaultProvider: 'anthropic',
+        defaultModel: 'claude-opus-4-6',
+      })
+    ).toEqual([])
+  })
 
-    if (!config || config.models.length === 0) {
-      expect(true).toBe(true)
-      return
-    }
+  it('strips the koji/ prefix from enabledModels entries', () => {
+    expect(
+      collectPreRegisterModels({
+        enabledModels: ['koji/unsloth/gemma-4-26b-a4b-it-gguf'],
+      })
+    ).toEqual(['unsloth/gemma-4-26b-a4b-it-gguf'])
+  })
 
-    // The key fix: context windows should come from koji's response,
-    // not be hardcoded to 128000. Different models may have different
-    // context windows (e.g., 32k, 128k, 256k).
-    const contextWindows = config.models.map((m) => m.contextWindow)
+  it('ignores enabledModels entries for other providers', () => {
+    expect(
+      collectPreRegisterModels({
+        enabledModels: [
+          'anthropic/claude-opus-4-6',
+          'openrouter/qwen/qwen3.5-flash',
+          'koji/mudler/deltacoder-9b-gguf',
+        ],
+      })
+    ).toEqual(['mudler/deltacoder-9b-gguf'])
+  })
 
-    // All context windows should be positive numbers
-    for (const cw of contextWindows) {
-      expect(cw).toBeGreaterThan(0)
-    }
+  it('includes defaultModel when defaultProvider is koji', () => {
+    expect(
+      collectPreRegisterModels({
+        defaultProvider: 'koji',
+        defaultModel: 'unsloth/gemma-4-26b-a4b-it-gguf',
+      })
+    ).toEqual(['unsloth/gemma-4-26b-a4b-it-gguf'])
+  })
 
-    // At least one model should have a context window that differs from
-    // the old hardcoded default of 128000, proving we fetch real data.
-    // (Some models may coincidentally be 128k, but most won't be.)
-    const hasNonDefault = contextWindows.some((cw) => cw !== 128000)
-    expect(hasNonDefault || contextWindows.length === 1).toBe(true)
+  it('does not include defaultModel when defaultProvider is not koji', () => {
+    expect(
+      collectPreRegisterModels({
+        defaultProvider: 'anthropic',
+        defaultModel: 'unsloth/gemma-4-26b-a4b-it-gguf',
+      })
+    ).toEqual([])
+  })
+
+  it('merges enabledModels and defaultModel without duplicates', () => {
+    expect(
+      collectPreRegisterModels({
+        defaultProvider: 'koji',
+        defaultModel: 'unsloth/gemma-4-26b-a4b-it-gguf',
+        enabledModels: [
+          'koji/unsloth/gemma-4-26b-a4b-it-gguf',
+          'koji/mudler/deltacoder-9b-gguf',
+        ],
+      })
+    ).toEqual([
+      'unsloth/gemma-4-26b-a4b-it-gguf',
+      'mudler/deltacoder-9b-gguf',
+    ])
+  })
+
+  it('ignores non-string entries in enabledModels', () => {
+    expect(
+      collectPreRegisterModels({
+        enabledModels: [
+          'koji/a',
+          null,
+          42,
+          { nope: true },
+          'koji/b',
+        ],
+      })
+    ).toEqual(['a', 'b'])
+  })
+
+  it('ignores empty or non-string defaultModel', () => {
+    expect(
+      collectPreRegisterModels({
+        defaultProvider: 'koji',
+        defaultModel: '',
+      })
+    ).toEqual([])
+    expect(
+      collectPreRegisterModels({
+        defaultProvider: 'koji',
+        defaultModel: 123,
+      })
+    ).toEqual([])
   })
 })

@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent'
-import { discoverKojiForPi } from './koji-api'
+import { discoverKojiForPi, normalizeBaseURL } from './koji-api'
 
 const PROVIDER_NAME = 'koji'
 const SETTINGS_PATH = join(homedir(), '.pi', 'agent', 'settings.json')
@@ -18,24 +19,68 @@ async function readSettingsURL(): Promise<string | undefined> {
   }
 }
 
+/**
+ * Determine which koji model IDs should be pre-registered synchronously so they
+ * exist in the registry before pi computes its initial scope. Includes:
+ *  - entries in `enabledModels` that start with "koji/"
+ *  - `defaultModel` when `defaultProvider === "koji"` (an implicit enabled model)
+ */
+export function collectPreRegisterModels(settings: unknown): string[] {
+  if (!settings || typeof settings !== 'object') return []
+  const s = settings as Record<string, unknown>
+  const ids = new Set<string>()
+
+  const enabled = Array.isArray(s.enabledModels) ? s.enabledModels : []
+  const prefix = `${PROVIDER_NAME}/`
+  for (const entry of enabled) {
+    if (typeof entry === 'string' && entry.startsWith(prefix)) {
+      ids.add(entry.slice(prefix.length))
+    }
+  }
+
+  if (
+    s.defaultProvider === PROVIDER_NAME &&
+    typeof s.defaultModel === 'string' &&
+    s.defaultModel.length > 0
+  ) {
+    ids.add(s.defaultModel)
+  }
+
+  return [...ids]
+}
+
 export default function (pi: ExtensionAPI) {
-  // Register koji provider on session_start with real model data from koji.
-  //
-  // We deliberately skip synchronous pre-registration because it uses hardcoded
-  // contextWindow values (128000) that don't match the real models served by
-  // koji. This causes compaction to trigger at the wrong threshold — e.g. if a
-  // user's model has a 32k context window, compaction would only fire at ~111k
-  // tokens instead of ~15k. By deferring registration until session_start, we
-  // ensure the provider is registered with accurate values before any
-  // _checkCompaction call.
-  //
-  // After re-registration, we also update the session's model reference to use
-  // the real model from the registry (in case it was previously selected with
-  // stale contextWindow data).
-  //
-  // Note: Koji models are not available during initial scope resolution. If no
-  // other providers are configured, pi may select a different model or fail at
-  // startup. Users should ensure koji is running and accessible.
+  // Synchronous pre-registration so koji models are available during initial
+  // scope resolution. This lets pi find and select a koji model as the default.
+  // We use conservative estimates for contextWindow/maxTokens — the real values
+  // will be updated after session_start when we fetch actual data from koji.
+  try {
+    const raw = readFileSync(SETTINGS_PATH, 'utf-8')
+    const settings = JSON.parse(raw)
+    const kojiURL = settings?.['pi-provider-koji']?.url
+    const kojiModelIds = collectPreRegisterModels(settings)
+
+    if (kojiURL && kojiModelIds.length > 0) {
+      pi.registerProvider(PROVIDER_NAME, {
+        baseUrl: `${normalizeBaseURL(kojiURL)}/v1`,
+        api: 'openai-completions',
+        apiKey: 'koji',
+        models: kojiModelIds.map((id) => ({
+          id,
+          name: id,
+          reasoning: false,
+          input: ['text'] as ('text' | 'image')[],
+          contextWindow: 128000,
+          maxTokens: 8192,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          compat: { supportsDeveloperRole: false, supportsReasoningEffort: false },
+        })),
+      })
+    }
+  } catch {
+    // Ignore errors during pre-registration
+  }
+
   pi.on('session_start', async (_event, ctx) => {
     // Priority: KOJI_URL env var > settings.json > auto-detect localhost
     const kojiURL = process.env.KOJI_URL || (await readSettingsURL()) || undefined
@@ -45,12 +90,15 @@ export default function (pi: ExtensionAPI) {
       return
     }
 
+    // Re-register with real model data from koji. This replaces the sync
+    // pre-registered models (with hardcoded contextWindow) with accurate data.
     pi.registerProvider(PROVIDER_NAME, config)
 
     // After re-registration, the session's model reference may still point to a
-    // stale model object (e.g. from pre-registration with hardcoded values).
-    // Look up the real Model from the registry (which has correct contextWindow)
-    // and update the session so compaction uses the right threshold.
+    // stale model object from the sync pre-registration (which used hardcoded
+    // contextWindow: 128000). Look up the real Model from the registry — which
+    // now has correct contextWindow values — and update the session. This ensures
+    // _checkCompaction reads the right threshold.
     const currentModel = ctx.model
     if (currentModel && currentModel.provider === PROVIDER_NAME) {
       const realModel = ctx.modelRegistry.find(PROVIDER_NAME, currentModel.id)

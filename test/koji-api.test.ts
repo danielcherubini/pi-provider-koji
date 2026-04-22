@@ -8,6 +8,7 @@ import {
   fetchKojiModels,
   autoDetectKoji,
   discoverKojiForPi,
+  resolveAndFetch,
 } from '../src/koji-api'
 import type { KojiModel } from '../src/types'
 
@@ -391,6 +392,29 @@ describe('discoverKojiForPi', () => {
     const config = await discoverKojiForPi()
     expect(config).not.toBeNull()
     expect(config!.baseUrl).toBe('http://127.0.0.1:11434/v1')
+  })
+
+  it('resolveAndFetch returns baseURL plus raw models on success', async () => {
+    const body = {
+      models: [{ id: 'test/model', name: 'Test', context_length: 8192 }],
+    }
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+
+    const result = await resolveAndFetch('http://localhost:11434', 'tok')
+    expect(result).not.toBeNull()
+    expect(result!.baseURL).toBe('http://localhost:11434')
+    expect(result!.models).toHaveLength(1)
+    expect(result!.models[0]!.id).toBe('test/model')
+  })
+
+  it('resolveAndFetch returns null when koji is unreachable', async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error('refused'))
+    expect(await resolveAndFetch('http://localhost:11434')).toBeNull()
   })
 
   it('threads token through to provider config and fetch calls', async () => {

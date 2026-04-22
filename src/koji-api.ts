@@ -135,13 +135,13 @@ export function buildPiProviderConfig(
 }
 
 /**
- * Full discovery flow: detect koji, fetch models, return pi provider config.
- * Returns null if koji is not reachable or has no models.
+ * Resolve a koji base URL (explicit or auto-detected) and fetch its model list.
+ * Returns the baseURL and raw models, or null on failure.
  */
-export async function discoverKojiForPi(
+export async function resolveAndFetch(
   kojiURL?: string,
   token?: string
-): Promise<PiProviderConfig | null> {
+): Promise<{ baseURL: string; models: KojiModel[] } | null> {
   let baseURL: string
 
   if (kojiURL) {
@@ -166,5 +166,18 @@ export async function discoverKojiForPi(
     return null
   }
 
-  return buildPiProviderConfig(baseURL, models, token)
+  return { baseURL, models }
+}
+
+/**
+ * Full discovery flow: detect koji, fetch models, return pi provider config.
+ * Returns null if koji is not reachable or has no models.
+ */
+export async function discoverKojiForPi(
+  kojiURL?: string,
+  token?: string
+): Promise<PiProviderConfig | null> {
+  const data = await resolveAndFetch(kojiURL, token)
+  if (!data) return null
+  return buildPiProviderConfig(data.baseURL, data.models, token)
 }

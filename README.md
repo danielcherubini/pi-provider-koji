@@ -98,6 +98,15 @@ The token is sent as `Authorization: Bearer <token>` on both model discovery and
 
 ## How it works
 
+On startup, the extension registers koji's models with pi in two phases:
+
+1. **Synchronous pre-registration** (so models are available during pi's initial scope resolution — pi ignores configured models that aren't registered by then):
+   - If `~/.pi/agent/koji-models.json` exists from a prior run, register every cached model with its real metadata.
+   - Otherwise, register only the models the user has enabled (`enabledModels` / `defaultModel`) with conservative `contextWindow`/`maxTokens` estimates.
+2. **Async refresh** on `session_start`: fetch the live model list from koji, re-register with fresh data, and overwrite `~/.pi/agent/koji-models.json` for the next startup.
+
+This means koji models stay selectable even if koji is briefly offline when pi boots, and config jitter (context limits, new/removed models) settles within one session.
+
 The extension fetches models from koji's `/koji/v1/opencode/models` endpoint and maps them to pi's provider format:
 
 | Koji field                          | Pi field        | Fallback                      |

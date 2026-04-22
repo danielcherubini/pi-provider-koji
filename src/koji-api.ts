@@ -21,12 +21,18 @@ export function buildAPIURL(baseURL: string, endpoint: string = KOJI_MODELS_ENDP
   return `${normalized}${endpoint}`
 }
 
+/** Build Authorization header when a token is provided. */
+export function buildAuthHeaders(token?: string): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 /** Check if koji is reachable at the given base URL. */
-export async function checkKojiHealth(baseURL: string = DEFAULT_KOJI_URL): Promise<boolean> {
+export async function checkKojiHealth(baseURL: string = DEFAULT_KOJI_URL, token?: string): Promise<boolean> {
   try {
     const url = buildAPIURL(baseURL, KOJI_MODELS_ENDPOINT)
     const response = await fetch(url, {
       method: 'GET',
+      headers: buildAuthHeaders(token),
       signal: AbortSignal.timeout(3000),
     })
     return response.ok
@@ -36,11 +42,11 @@ export async function checkKojiHealth(baseURL: string = DEFAULT_KOJI_URL): Promi
 }
 
 /** Auto-detect koji on common ports. Returns the base URL or null. */
-export async function autoDetectKoji(): Promise<string | null> {
+export async function autoDetectKoji(token?: string): Promise<string | null> {
   const ports = [11434, 8080]
   for (const port of ports) {
     const baseURL = `http://127.0.0.1:${port}`
-    const isHealthy = await checkKojiHealth(baseURL)
+    const isHealthy = await checkKojiHealth(baseURL, token)
     if (isHealthy) {
       return baseURL
     }
@@ -49,17 +55,21 @@ export async function autoDetectKoji(): Promise<string | null> {
 }
 
 /** Fetch raw model list from koji's opencode endpoint. */
-export async function fetchKojiModels(baseURL: string = DEFAULT_KOJI_URL): Promise<KojiModel[]> {
+export async function fetchKojiModels(baseURL: string = DEFAULT_KOJI_URL, token?: string): Promise<KojiModel[]> {
   try {
     const url = buildAPIURL(baseURL, KOJI_MODELS_ENDPOINT)
     const response = await fetch(url, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
       signal: AbortSignal.timeout(5000),
     })
 
     if (!response.ok) {
-      console.warn(`[pi-provider-koji] Koji returned ${response.status}: ${response.statusText}`)
+      if (response.status === 401 || response.status === 403) {
+        console.warn(`[pi-provider-koji] Koji rejected auth (${response.status}) — check KOJI_TOKEN`)
+      } else {
+        console.warn(`[pi-provider-koji] Koji returned ${response.status}: ${response.statusText}`)
+      }
       return []
     }
 
@@ -105,13 +115,17 @@ export function transformModel(model: KojiModel): PiModel {
 }
 
 /** Transform all koji models into a complete pi provider config. */
-export function buildPiProviderConfig(baseURL: string, kojiModels: KojiModel[]): PiProviderConfig {
+export function buildPiProviderConfig(
+  baseURL: string,
+  kojiModels: KojiModel[],
+  token?: string
+): PiProviderConfig {
   const normalized = normalizeBaseURL(baseURL)
 
   return {
     baseUrl: `${normalized}/v1`,
     api: 'openai-completions',
-    apiKey: 'koji',
+    apiKey: token || 'koji',
     compat: {
       supportsDeveloperRole: false,
       supportsReasoningEffort: false,
@@ -125,19 +139,20 @@ export function buildPiProviderConfig(baseURL: string, kojiModels: KojiModel[]):
  * Returns null if koji is not reachable or has no models.
  */
 export async function discoverKojiForPi(
-  kojiURL?: string
+  kojiURL?: string,
+  token?: string
 ): Promise<PiProviderConfig | null> {
   let baseURL: string
 
   if (kojiURL) {
     baseURL = normalizeBaseURL(kojiURL)
-    const isHealthy = await checkKojiHealth(baseURL)
+    const isHealthy = await checkKojiHealth(baseURL, token)
     if (!isHealthy) {
       console.warn(`[pi-provider-koji] Koji not reachable at ${baseURL}`)
       return null
     }
   } else {
-    const detected = await autoDetectKoji()
+    const detected = await autoDetectKoji(token)
     if (!detected) {
       console.log('[pi-provider-koji] Koji not detected on default ports (11434, 8080)')
       return null
@@ -145,11 +160,11 @@ export async function discoverKojiForPi(
     baseURL = detected
   }
 
-  const models = await fetchKojiModels(baseURL)
+  const models = await fetchKojiModels(baseURL, token)
   if (models.length === 0) {
     console.warn('[pi-provider-koji] No models discovered — ensure koji serve is running')
     return null
   }
 
-  return buildPiProviderConfig(baseURL, models)
+  return buildPiProviderConfig(baseURL, models, token)
 }

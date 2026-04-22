@@ -19,6 +19,17 @@ async function readSettingsURL(): Promise<string | undefined> {
   }
 }
 
+/** Read koji token from ~/.pi/agent/settings.json "pi-provider-koji" section. */
+async function readSettingsToken(): Promise<string | undefined> {
+  try {
+    const raw = await readFile(SETTINGS_PATH, 'utf-8')
+    const settings = JSON.parse(raw)
+    return settings?.['pi-provider-koji']?.token || undefined
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Determine which koji model IDs should be pre-registered synchronously so they
  * exist in the registry before pi computes its initial scope. Includes:
@@ -58,13 +69,14 @@ export default function (pi: ExtensionAPI) {
     const raw = readFileSync(SETTINGS_PATH, 'utf-8')
     const settings = JSON.parse(raw)
     const kojiURL = settings?.['pi-provider-koji']?.url
+    const kojiToken = process.env.KOJI_TOKEN || settings?.['pi-provider-koji']?.token || undefined
     const kojiModelIds = collectPreRegisterModels(settings)
 
     if (kojiURL && kojiModelIds.length > 0) {
       pi.registerProvider(PROVIDER_NAME, {
         baseUrl: `${normalizeBaseURL(kojiURL)}/v1`,
         api: 'openai-completions',
-        apiKey: 'koji',
+        apiKey: kojiToken || 'koji',
         models: kojiModelIds.map((id) => ({
           id,
           name: id,
@@ -84,7 +96,9 @@ export default function (pi: ExtensionAPI) {
   pi.on('session_start', async (_event, ctx) => {
     // Priority: KOJI_URL env var > settings.json > auto-detect localhost
     const kojiURL = process.env.KOJI_URL || (await readSettingsURL()) || undefined
-    const config = await discoverKojiForPi(kojiURL)
+    // Token priority: KOJI_TOKEN env var > settings.json > undefined
+    const kojiToken = process.env.KOJI_TOKEN || (await readSettingsToken()) || undefined
+    const config = await discoverKojiForPi(kojiURL, kojiToken)
 
     if (!config) {
       return

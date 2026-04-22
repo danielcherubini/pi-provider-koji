@@ -164,6 +164,11 @@ describe('buildPiProviderConfig', () => {
     expect(config.models[1]!.input).toEqual(['text', 'image'])
   })
 
+  it('uses provided token as apiKey', () => {
+    const config = buildPiProviderConfig('http://127.0.0.1:11434', models, 'secret-token')
+    expect(config.apiKey).toBe('secret-token')
+  })
+
   it('normalizes the base URL before appending /v1', () => {
     const config = buildPiProviderConfig('http://localhost:11434/v1/', models)
     expect(config.baseUrl).toBe('http://localhost:11434/v1')
@@ -220,6 +225,42 @@ describe('fetchKojiModels', () => {
     const models = await fetchKojiModels('http://localhost:11434')
     expect(models).toHaveLength(1)
     expect(models[0]!.id).toBe('test/model')
+  })
+
+  it('sends Authorization: Bearer header when token provided', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ models: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+
+    await fetchKojiModels('http://localhost:11434', 'secret-token')
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]!
+    const headers = (init as RequestInit).headers as Record<string, string>
+    expect(headers.Authorization).toBe('Bearer secret-token')
+  })
+
+  it('does not send Authorization header when no token', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ models: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+
+    await fetchKojiModels('http://localhost:11434')
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]!
+    const headers = (init as RequestInit).headers as Record<string, string>
+    expect(headers.Authorization).toBeUndefined()
+  })
+
+  it('returns empty array on 401 (auth rejected)', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response('Unauthorized', { status: 401 }))
+    const models = await fetchKojiModels('http://localhost:11434', 'wrong-token')
+    expect(models).toEqual([])
   })
 
   it('returns empty array on non-200', async () => {
@@ -350,5 +391,27 @@ describe('discoverKojiForPi', () => {
     const config = await discoverKojiForPi()
     expect(config).not.toBeNull()
     expect(config!.baseUrl).toBe('http://127.0.0.1:11434/v1')
+  })
+
+  it('threads token through to provider config and fetch calls', async () => {
+    const body = {
+      models: [{ id: 'test/model', name: 'Test', context_length: 8192 }],
+    }
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+
+    const config = await discoverKojiForPi('http://remote.example:11434', 'test-token')
+    expect(config).not.toBeNull()
+    expect(config!.apiKey).toBe('test-token')
+
+    // Every fetch (health check + models) should have sent the bearer token
+    for (const call of vi.mocked(fetch).mock.calls) {
+      const headers = (call[1] as RequestInit).headers as Record<string, string>
+      expect(headers.Authorization).toBe('Bearer test-token')
+    }
   })
 })

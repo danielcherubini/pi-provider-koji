@@ -70,6 +70,32 @@ export KOJI_URL=http://myserver:11434
 
 **Priority order:** `KOJI_URL` env var → `settings.json` → auto-detect localhost
 
+### Authentication
+
+If your koji instance is gated behind a bearer token, configure one of:
+
+1. **`KOJI_TOKEN` environment variable** (highest priority):
+
+   ```bash
+   export KOJI_TOKEN=your-token-here
+   ```
+
+2. **`token` field in `~/.pi/agent/settings.json`**:
+
+   ```json
+   {
+     "packages": ["npm:pi-provider-koji"],
+     "pi-provider-koji": {
+       "url": "https://koji.example.com",
+       "token": "your-token-here"
+     }
+   }
+   ```
+
+The token is sent as `Authorization: Bearer <token>` on both model discovery and inference requests, and is used as pi's `apiKey` for the registered provider. When unset, no auth header is sent (fine for localhost).
+
+**Priority order:** `KOJI_TOKEN` env var → `settings.json` token → none
+
 ## How it works
 
 The extension fetches models from koji's `/koji/v1/opencode/models` endpoint and maps them to pi's provider format:

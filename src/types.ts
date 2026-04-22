@@ -1,5 +1,5 @@
-/** Model as returned by koji's /koji/v1/opencode/models endpoint. */
-export interface KojiModel {
+/** Model as returned by tama's /tama/v1/opencode/models endpoint. */
+export interface TamaModel {
   id: string
   name: string
   model?: string
@@ -17,9 +17,9 @@ export interface KojiModel {
   gpu_layers?: number
 }
 
-/** Response from koji's /koji/v1/opencode/models endpoint. */
-export interface KojiModelsResponse {
-  models: KojiModel[]
+/** Response from tama's /tama/v1/opencode/models endpoint. */
+export interface TamaModelsResponse {
+  models: TamaModel[]
 }
 
 /** A model in pi's provider format. */

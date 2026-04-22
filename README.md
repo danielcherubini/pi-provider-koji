@@ -1,14 +1,14 @@
-# pi-provider-koji
+# pi-provider-tama
 
-[Pi agent](https://pi.dev) extension that auto-discovers models from a local [koji](https://github.com/danielcherubini/koji) server and registers them as a provider.
+[Pi agent](https://pi.dev) extension that auto-discovers models from a local [tama](https://github.com/danielcherubini/tama) server and registers them as a provider.
 
 ## What it does
 
 When pi starts (or on `/reload`), this extension:
 
-1. Auto-detects koji on ports `11434` or `8080`
-2. Fetches available models from koji's API
-3. Registers a `koji` provider in pi with all discovered models
+1. Auto-detects tama on ports `11434` or `8080`
+2. Fetches available models from tama's API
+3. Registers a `tama` provider in pi with all discovered models
 
 Models appear in `/model` immediately — no manual `models.json` editing needed.
 
@@ -17,76 +17,76 @@ Models appear in `/model` immediately — no manual `models.json` editing needed
 ### Option A: npm (recommended)
 
 ```bash
-pi install npm:pi-provider-koji
+pi install npm:pi-provider-tama
 ```
 
 ### Option B: git
 
 ```bash
-pi install git:github.com/danielcherubini/pi-provider-koji
+pi install git:github.com/danielcherubini/pi-provider-tama
 ```
 
 Use `-l` to install to project scope (`.pi/settings.json`) instead of global:
 
 ```bash
-pi install -l npm:pi-provider-koji
+pi install -l npm:pi-provider-tama
 ```
 
 ### Option C: Local development
 
 ```bash
-git clone https://github.com/danielcherubini/pi-provider-koji.git
-cd pi-provider-koji
+git clone https://github.com/danielcherubini/pi-provider-tama.git
+cd pi-provider-tama
 npm install
 
 # Install from local path
-pi install ./pi-provider-koji
+pi install ./pi-provider-tama
 ```
 
 ## Configuration
 
-By default, the extension auto-detects koji on `127.0.0.1:11434` and `127.0.0.1:8080`.
+By default, the extension auto-detects tama on `127.0.0.1:11434` and `127.0.0.1:8080`.
 
-No configuration is needed if koji is running locally on the default port.
+No configuration is needed if tama is running locally on the default port.
 
-### Remote koji server
+### Remote tama server
 
-Add the koji URL to `~/.pi/agent/settings.json`:
+Add the tama URL to `~/.pi/agent/settings.json`:
 
 ```json
 {
-  "packages": ["npm:pi-provider-koji"],
-  "pi-provider-koji": {
+  "packages": ["npm:pi-provider-tama"],
+  "pi-provider-tama": {
     "url": "http://myserver:11434"
   }
 }
 ```
 
-Or use the `KOJI_URL` environment variable (takes priority over settings.json):
+Or use the `TAMA_URL` environment variable (takes priority over settings.json):
 
 ```bash
-export KOJI_URL=http://myserver:11434
+export TAMA_URL=http://myserver:11434
 ```
 
-**Priority order:** `KOJI_URL` env var → `settings.json` → auto-detect localhost
+**Priority order:** `TAMA_URL` env var → `settings.json` → auto-detect localhost
 
 ### Authentication
 
-If your koji instance is gated behind a bearer token, configure one of:
+If your tama instance is gated behind a bearer token, configure one of:
 
-1. **`KOJI_TOKEN` environment variable** (highest priority):
+1. **`TAMA_TOKEN` environment variable** (highest priority):
 
    ```bash
-   export KOJI_TOKEN=your-token-here
+   export TAMA_TOKEN=your-token-here
    ```
 
 2. **`token` field in `~/.pi/agent/settings.json`**:
 
    ```json
    {
-     "packages": ["npm:pi-provider-koji"],
-     "pi-provider-koji": {
-       "url": "https://koji.example.com",
+     "packages": ["npm:pi-provider-tama"],
+     "pi-provider-tama": {
+       "url": "https://tama.example.com",
        "token": "your-token-here"
      }
    }
@@ -94,22 +94,30 @@ If your koji instance is gated behind a bearer token, configure one of:
 
 The token is sent as `Authorization: Bearer <token>` on both model discovery and inference requests, and is used as pi's `apiKey` for the registered provider. When unset, no auth header is sent (fine for localhost).
 
-**Priority order:** `KOJI_TOKEN` env var → `settings.json` token → none
+**Priority order:** `TAMA_TOKEN` env var → `settings.json` token → none
 
 ## How it works
 
-On startup, the extension registers koji's models with pi in two phases:
+The extension is an **async factory**: pi awaits it before resolving which
+models are available, so every tama model is registered before pi decides
+what's selectable. No caching layer, no sync pre-registration dance.
 
-1. **Synchronous pre-registration** (so models are available during pi's initial scope resolution — pi ignores configured models that aren't registered by then):
-   - If `~/.pi/agent/koji-models.json` exists from a prior run, register every cached model with its real metadata.
-   - Otherwise, register only the models the user has enabled (`enabledModels` / `defaultModel`) with conservative `contextWindow`/`maxTokens` estimates.
-2. **Async refresh** on `session_start`: fetch the live model list from koji, re-register with fresh data, and overwrite `~/.pi/agent/koji-models.json` for the next startup.
+On startup the factory:
 
-This means koji models stay selectable even if koji is briefly offline when pi boots, and config jitter (context limits, new/removed models) settles within one session.
+1. Resolves the tama URL/token (env → `settings.json` → auto-detect localhost).
+2. Fetches the live model list from `/tama/v1/opencode/models`.
+3. Calls `pi.registerProvider("tama", …)` with every discovered model.
 
-The extension fetches models from koji's `/koji/v1/opencode/models` endpoint and maps them to pi's provider format:
+It also re-runs the same flow on `session_start`, so `/reload` picks up
+models that were added to tama after pi started.
 
-| Koji field                          | Pi field        | Fallback                      |
+> Requires pi with async-factory support (pi-mono ≥ Jan 2026,
+> commit `aea9f843`). If tama is offline when pi boots, no tama models
+> register — bring tama up and run `/reload`.
+
+Discovered models are mapped to pi's provider format:
+
+| Tama field                          | Pi field        | Fallback                      |
 | ----------------------------------- | --------------- | ----------------------------- |
 | `id` (lowercased HF repo)           | model `id`      | —                             |
 | `name` (pretty display)             | model `name`    | `id`                          |
@@ -124,12 +132,12 @@ All models are registered with:
 - `cost: { input: 0, output: 0, ... }` (local = free)
 - `compat: { supportsDeveloperRole: false, supportsReasoningEffort: false }`
 
-## Migrating from pi-koji
+## Migrating from pi-tama
 
-This package was previously published as `pi-koji`. To migrate:
+This package was previously published as `pi-tama`. To migrate:
 
-1. Reinstall: `pi install npm:pi-provider-koji`
-2. Rename the settings key in `~/.pi/agent/settings.json` from `"pi-koji"` to `"pi-provider-koji"`
+1. Reinstall: `pi install npm:pi-provider-tama`
+2. Rename the settings key in `~/.pi/agent/settings.json` from `"pi-tama"` to `"pi-provider-tama"`
 3. Uninstall the old package
 
 ## Development
@@ -143,7 +151,7 @@ npm run typecheck # Type check
 
 ## Requirements
 
-- [koji](https://github.com/danielcherubini/koji) running locally with `koji serve`
+- [tama](https://github.com/danielcherubini/tama) running locally with `tama serve`
 - [pi](https://pi.dev) agent
 
 ## License

@@ -4,13 +4,13 @@ import {
   buildAPIURL,
   transformModel,
   buildPiProviderConfig,
-  checkKojiHealth,
-  fetchKojiModels,
-  autoDetectKoji,
-  discoverKojiForPi,
+  checkTamaHealth,
+  fetchTamaModels,
+  autoDetectTama,
+  discoverTamaForPi,
   resolveAndFetch,
-} from '../src/koji-api'
-import type { KojiModel } from '../src/types'
+} from '../src/tama-api'
+import type { TamaModel } from '../src/types'
 
 // ---------- Pure function tests (no network) ----------
 
@@ -40,13 +40,13 @@ describe('normalizeBaseURL', () => {
 describe('buildAPIURL', () => {
   it('builds the default opencode models URL', () => {
     expect(buildAPIURL('http://localhost:11434')).toBe(
-      'http://localhost:11434/koji/v1/opencode/models'
+      'http://localhost:11434/tama/v1/opencode/models'
     )
   })
 
   it('normalizes before building', () => {
     expect(buildAPIURL('http://localhost:11434/v1/')).toBe(
-      'http://localhost:11434/koji/v1/opencode/models'
+      'http://localhost:11434/tama/v1/opencode/models'
     )
   })
 
@@ -58,7 +58,7 @@ describe('buildAPIURL', () => {
 })
 
 describe('transformModel', () => {
-  const baseModel: KojiModel = {
+  const baseModel: TamaModel = {
     id: 'unsloth/qwen3.5-35b-a3b-gguf',
     name: 'Unsloth: Qwen3.5 35B A3B',
   }
@@ -77,14 +77,14 @@ describe('transformModel', () => {
   })
 
   it('uses context_length when provided', () => {
-    const model: KojiModel = { ...baseModel, context_length: 262144 }
+    const model: TamaModel = { ...baseModel, context_length: 262144 }
     const result = transformModel(model)
     expect(result.contextWindow).toBe(262144)
     expect(result.maxTokens).toBe(Math.floor(262144 / 16))
   })
 
   it('uses limit.context when context_length is null', () => {
-    const model: KojiModel = {
+    const model: TamaModel = {
       ...baseModel,
       context_length: null,
       limit: { context: 65536, output: 4096 },
@@ -95,7 +95,7 @@ describe('transformModel', () => {
   })
 
   it('prefers limit.output over computed maxTokens', () => {
-    const model: KojiModel = {
+    const model: TamaModel = {
       ...baseModel,
       context_length: 131072,
       limit: { context: 131072, output: 16384 },
@@ -105,7 +105,7 @@ describe('transformModel', () => {
   })
 
   it('maps modalities', () => {
-    const model: KojiModel = {
+    const model: TamaModel = {
       ...baseModel,
       modalities: { input: ['text', 'image'], output: ['text'] },
     }
@@ -119,7 +119,7 @@ describe('transformModel', () => {
   })
 
   it('falls back to id when name is empty', () => {
-    const model: KojiModel = { id: 'test/model', name: '' }
+    const model: TamaModel = { id: 'test/model', name: '' }
     const result = transformModel(model)
     expect(result.name).toBe('test/model')
   })
@@ -136,7 +136,7 @@ describe('transformModel', () => {
 })
 
 describe('buildPiProviderConfig', () => {
-  const models: KojiModel[] = [
+  const models: TamaModel[] = [
     {
       id: 'unsloth/qwen3.5-35b-a3b-gguf',
       name: 'Unsloth: Qwen3.5 35B A3B',
@@ -155,7 +155,7 @@ describe('buildPiProviderConfig', () => {
 
     expect(config.baseUrl).toBe('http://127.0.0.1:11434/v1')
     expect(config.api).toBe('openai-completions')
-    expect(config.apiKey).toBe('koji')
+    expect(config.apiKey).toBe('tama')
     expect(config.compat).toEqual({
       supportsDeveloperRole: false,
       supportsReasoningEffort: false,
@@ -178,7 +178,7 @@ describe('buildPiProviderConfig', () => {
 
 // ---------- Network tests (mocked fetch) ----------
 
-describe('checkKojiHealth', () => {
+describe('checkTamaHealth', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
   })
@@ -186,23 +186,23 @@ describe('checkKojiHealth', () => {
     vi.restoreAllMocks()
   })
 
-  it('returns true when koji responds 200', async () => {
+  it('returns true when tama responds 200', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response('OK', { status: 200 }))
-    expect(await checkKojiHealth('http://localhost:11434')).toBe(true)
+    expect(await checkTamaHealth('http://localhost:11434')).toBe(true)
   })
 
-  it('returns false when koji responds 500', async () => {
+  it('returns false when tama responds 500', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response('Error', { status: 500 }))
-    expect(await checkKojiHealth('http://localhost:11434')).toBe(false)
+    expect(await checkTamaHealth('http://localhost:11434')).toBe(false)
   })
 
   it('returns false when fetch throws', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error('Connection refused'))
-    expect(await checkKojiHealth('http://localhost:11434')).toBe(false)
+    expect(await checkTamaHealth('http://localhost:11434')).toBe(false)
   })
 })
 
-describe('fetchKojiModels', () => {
+describe('fetchTamaModels', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
   })
@@ -211,7 +211,7 @@ describe('fetchKojiModels', () => {
   })
 
   it('returns models on success', async () => {
-    const body: { models: KojiModel[] } = {
+    const body: { models: TamaModel[] } = {
       models: [
         { id: 'test/model', name: 'Test Model', context_length: 8192 },
       ],
@@ -223,7 +223,7 @@ describe('fetchKojiModels', () => {
       })
     )
 
-    const models = await fetchKojiModels('http://localhost:11434')
+    const models = await fetchTamaModels('http://localhost:11434')
     expect(models).toHaveLength(1)
     expect(models[0]!.id).toBe('test/model')
   })
@@ -236,7 +236,7 @@ describe('fetchKojiModels', () => {
       })
     )
 
-    await fetchKojiModels('http://localhost:11434', 'secret-token')
+    await fetchTamaModels('http://localhost:11434', 'secret-token')
 
     const [, init] = vi.mocked(fetch).mock.calls[0]!
     const headers = (init as RequestInit).headers as Record<string, string>
@@ -251,7 +251,7 @@ describe('fetchKojiModels', () => {
       })
     )
 
-    await fetchKojiModels('http://localhost:11434')
+    await fetchTamaModels('http://localhost:11434')
 
     const [, init] = vi.mocked(fetch).mock.calls[0]!
     const headers = (init as RequestInit).headers as Record<string, string>
@@ -260,19 +260,19 @@ describe('fetchKojiModels', () => {
 
   it('returns empty array on 401 (auth rejected)', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response('Unauthorized', { status: 401 }))
-    const models = await fetchKojiModels('http://localhost:11434', 'wrong-token')
+    const models = await fetchTamaModels('http://localhost:11434', 'wrong-token')
     expect(models).toEqual([])
   })
 
   it('returns empty array on non-200', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response('Not Found', { status: 404 }))
-    const models = await fetchKojiModels('http://localhost:11434')
+    const models = await fetchTamaModels('http://localhost:11434')
     expect(models).toEqual([])
   })
 
   it('returns empty array on fetch error', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error('timeout'))
-    const models = await fetchKojiModels('http://localhost:11434')
+    const models = await fetchTamaModels('http://localhost:11434')
     expect(models).toEqual([])
   })
 
@@ -283,12 +283,12 @@ describe('fetchKojiModels', () => {
         headers: { 'Content-Type': 'application/json' },
       })
     )
-    const models = await fetchKojiModels('http://localhost:11434')
+    const models = await fetchTamaModels('http://localhost:11434')
     expect(models).toEqual([])
   })
 })
 
-describe('autoDetectKoji', () => {
+describe('autoDetectTama', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
   })
@@ -298,7 +298,7 @@ describe('autoDetectKoji', () => {
 
   it('returns first healthy port', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response('OK', { status: 200 }))
-    const url = await autoDetectKoji()
+    const url = await autoDetectTama()
     expect(url).toBe('http://127.0.0.1:11434')
   })
 
@@ -307,18 +307,18 @@ describe('autoDetectKoji', () => {
       .mockRejectedValueOnce(new Error('refused')) // port 11434
       .mockResolvedValueOnce(new Response('OK', { status: 200 })) // port 8080
 
-    const url = await autoDetectKoji()
+    const url = await autoDetectTama()
     expect(url).toBe('http://127.0.0.1:8080')
   })
 
   it('returns null when no ports respond', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error('refused'))
-    const url = await autoDetectKoji()
+    const url = await autoDetectTama()
     expect(url).toBeNull()
   })
 })
 
-describe('discoverKojiForPi', () => {
+describe('discoverTamaForPi', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
   })
@@ -345,7 +345,7 @@ describe('discoverKojiForPi', () => {
       })
     )
 
-    const config = await discoverKojiForPi('http://localhost:11434')
+    const config = await discoverTamaForPi('http://localhost:11434')
     expect(config).not.toBeNull()
     expect(config!.baseUrl).toBe('http://localhost:11434/v1')
     expect(config!.models).toHaveLength(1)
@@ -354,9 +354,9 @@ describe('discoverKojiForPi', () => {
     expect(config!.models[0]!.contextWindow).toBe(262144)
   })
 
-  it('returns null when koji is unreachable', async () => {
+  it('returns null when tama is unreachable', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error('refused'))
-    const config = await discoverKojiForPi('http://localhost:11434')
+    const config = await discoverTamaForPi('http://localhost:11434')
     expect(config).toBeNull()
   })
 
@@ -372,7 +372,7 @@ describe('discoverKojiForPi', () => {
         })
       )
 
-    const config = await discoverKojiForPi('http://localhost:11434')
+    const config = await discoverTamaForPi('http://localhost:11434')
     expect(config).toBeNull()
   })
 
@@ -389,7 +389,7 @@ describe('discoverKojiForPi', () => {
       })
     )
 
-    const config = await discoverKojiForPi()
+    const config = await discoverTamaForPi()
     expect(config).not.toBeNull()
     expect(config!.baseUrl).toBe('http://127.0.0.1:11434/v1')
   })
@@ -412,7 +412,7 @@ describe('discoverKojiForPi', () => {
     expect(result!.models[0]!.id).toBe('test/model')
   })
 
-  it('resolveAndFetch returns null when koji is unreachable', async () => {
+  it('resolveAndFetch returns null when tama is unreachable', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error('refused'))
     expect(await resolveAndFetch('http://localhost:11434')).toBeNull()
   })
@@ -428,7 +428,7 @@ describe('discoverKojiForPi', () => {
       })
     )
 
-    const config = await discoverKojiForPi('http://remote.example:11434', 'test-token')
+    const config = await discoverTamaForPi('http://remote.example:11434', 'test-token')
     expect(config).not.toBeNull()
     expect(config!.apiKey).toBe('test-token')
 

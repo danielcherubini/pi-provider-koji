@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "pi-provider-koji",
-  "version": "0.8.0",
-  "description": "Pi agent extension for koji local AI server auto-discovery and model configuration",
+  "name": "pi-provider-tama",
+  "version": "0.9.0",
+  "description": "Pi agent extension for tama local AI server auto-discovery and model configuration",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
@@ -27,7 +27,7 @@
     "pi-package",
     "pi",
     "pi-agent",
-    "koji",
+    "tama",
     "extension",
     "local-llm",
     "openai-compatible",
@@ -38,11 +38,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/danielcherubini/pi-provider-koji.git"
+    "url": "https://github.com/danielcherubini/pi-provider-tama.git"
   },
-  "homepage": "https://github.com/danielcherubini/pi-provider-koji#readme",
+  "homepage": "https://github.com/danielcherubini/pi-provider-tama#readme",
   "bugs": {
-    "url": "https://github.com/danielcherubini/pi-provider-koji/issues"
+    "url": "https://github.com/danielcherubini/pi-provider-tama/issues"
   },
   "author": "Daniel Cherubini",
   "license": "MIT",

@@ -95,7 +95,7 @@ describe('default extension factory', () => {
     expect(pi.registerProvider).not.toHaveBeenCalled()
     // session_start should still be wired so /reload can retry.
     expect(pi.on).toHaveBeenCalledWith('session_start', expect.any(Function))
-  })
+  }, 10000)
 
   it('re-registers on session_start with current models', async () => {
     process.env.TAMA_URL = 'http://remote.example:11434'

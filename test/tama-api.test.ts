@@ -194,12 +194,12 @@ describe('checkTamaHealth', () => {
   it('returns false when tama responds 500', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response('Error', { status: 500 }))
     expect(await checkTamaHealth('http://localhost:11434')).toBe(false)
-  })
+  }, 10000)
 
   it('returns false when fetch throws', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error('Connection refused'))
     expect(await checkTamaHealth('http://localhost:11434')).toBe(false)
-  })
+  }, 10000)
 })
 
 describe('fetchTamaModels', () => {
@@ -303,19 +303,24 @@ describe('autoDetectTama', () => {
   })
 
   it('tries port 8080 when 11434 is down', async () => {
+    // Port 11434: 4 rejections (initial + 3 retries)
     vi.mocked(fetch)
-      .mockRejectedValueOnce(new Error('refused')) // port 11434
-      .mockResolvedValueOnce(new Response('OK', { status: 200 })) // port 8080
+      .mockRejectedValueOnce(new Error('refused'))
+      .mockRejectedValueOnce(new Error('refused'))
+      .mockRejectedValueOnce(new Error('refused'))
+      .mockRejectedValueOnce(new Error('refused'))
+      // Port 8080: succeeds on first try
+      .mockResolvedValueOnce(new Response('OK', { status: 200 }))
 
     const url = await autoDetectTama()
     expect(url).toBe('http://127.0.0.1:8080')
-  })
+  }, 10000)
 
   it('returns null when no ports respond', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error('refused'))
     const url = await autoDetectTama()
     expect(url).toBeNull()
-  })
+  }, 30000)
 })
 
 describe('discoverTamaForPi', () => {
@@ -358,7 +363,7 @@ describe('discoverTamaForPi', () => {
     vi.mocked(fetch).mockRejectedValue(new Error('refused'))
     const config = await discoverTamaForPi('http://localhost:11434')
     expect(config).toBeNull()
-  })
+  }, 20000)
 
   it('returns null when no models are available', async () => {
     vi.mocked(fetch)
@@ -415,7 +420,7 @@ describe('discoverTamaForPi', () => {
   it('resolveAndFetch returns null when tama is unreachable', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error('refused'))
     expect(await resolveAndFetch('http://localhost:11434')).toBeNull()
-  })
+  }, 10000)
 
   it('threads token through to provider config and fetch calls', async () => {
     const body = {

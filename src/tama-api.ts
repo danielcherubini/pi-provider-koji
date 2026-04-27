@@ -26,19 +26,55 @@ export function buildAuthHeaders(token?: string): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-/** Check if tama is reachable at the given base URL. */
-export async function checkTamaHealth(baseURL: string = DEFAULT_TAMA_URL, token?: string): Promise<boolean> {
-  try {
-    const url = buildAPIURL(baseURL, TAMA_MODELS_ENDPOINT)
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: buildAuthHeaders(token),
-      signal: AbortSignal.timeout(3000),
-    })
-    return response.ok
-  } catch {
-    return false
+/** Delay for the given milliseconds. Exported for test mocking. */
+export function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** HTTP statuses worth retrying (transient failures). */
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504])
+
+/** Check if tama is reachable at the given base URL, with retries on transient failures. */
+export async function checkTamaHealth(
+  baseURL: string = DEFAULT_TAMA_URL,
+  token?: string,
+  maxRetries: number = 3
+): Promise<boolean> {
+  const url = buildAPIURL(baseURL, TAMA_MODELS_ENDPOINT)
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: buildAuthHeaders(token),
+        signal: AbortSignal.timeout(3000),
+      })
+
+      if (response.ok) {
+        return true
+      }
+
+      // 401/403 won't resolve on retry; other 4xx are client errors
+      if (response.status < 500 && response.status !== 429) {
+        return false
+      }
+
+      // Retry 5xx and 429 if we have attempts left
+      if (!RETRYABLE_STATUS.has(response.status) || attempt === maxRetries) {
+        return false
+      }
+    } catch {
+      // Network errors, timeouts — always transient. Bail if out of attempts.
+      if (attempt === maxRetries) {
+        return false
+      }
+    }
+
+    const backoff = Math.min(1000 * 2 ** attempt, 8000)
+    await delay(backoff)
   }
+
+  return false
 }
 
 /** Auto-detect tama on common ports. Returns the base URL or null. */
